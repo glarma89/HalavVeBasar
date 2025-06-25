@@ -5,24 +5,26 @@ const { Client } = require('@elastic/elasticsearch');
 const app = express();
 const PORT = 5000;
 
-// Elasticsearch client
 const es = new Client({ 
     node: 'http://localhost:9200',
     compatibility: true,
 });
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Тестовый маршрут
 app.get('/', (req, res) => {
   res.send('Express server is running');
 });
-
-// Приём заказов
 app.post('/api/order', async (req, res) => {
   const order = req.body;
+
+  const transformedProducts = Object.entries(order.products || {}).map(
+    ([category, items]) => ({
+      category,
+      items
+    })
+  );
 
   try {
     const response = await es.index({
@@ -31,7 +33,7 @@ app.post('/api/order', async (req, res) => {
         name: order.name,
         address: order.address,
         email: order.email,
-        products: order.products,
+        products: transformedProducts,
         created_at: new Date(),
       },
     });
@@ -41,7 +43,7 @@ app.post('/api/order', async (req, res) => {
       id: response._id,
     });
   } catch (error) {
-    console.error('Ошибка при сохранении заказа:', error);
+    console.error('Elasticsearch error:', error);
     res.status(500).json({ message: 'Failed to save order' });
   }
 });
